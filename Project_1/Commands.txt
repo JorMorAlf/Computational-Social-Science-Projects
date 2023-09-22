@@ -1,0 +1,46 @@
+cd 
+git clone
+mkdir 
+cp 
+touch 
+nano 
+git add *
+git commit -m "Folder and code for Project 1" 
+git push 
+The default interactive shell is now zsh.
+To update your account to use zsh, please run `chsh -s /bin/zsh`.
+For more details, please visit https://support.apple.com/kb/HT208050.
+(base) MacBook-Pro-de-Jorge:~ jorgeantoniomorales$ cd 
+/Users/jorgeantoniomorales/Documents/GitHub
+(base) MacBook-Pro-de-Jorge:GitHub jorgeantoniomorales$ git clone 
+https://github.com/JorMorAlf/Computational-Social-Science-Projects.git
+Cloning into 'Computational-Social-Science-Projects'...
+remote: Enumerating objects: 3, done.
+remote: Counting objects: 100% (3/3), done.
+remote: Total 3 (delta 0), reused 0 (delta 0), pack-reused 0
+Receiving objects: 100% (3/3), done.
+(base) MacBook-Pro-de-Jorge:GitHub jorgeantoniomorales$ cd 
+/Users/jorgeantoniomorales/Documents/GitHub/Computational-Social-Science-Projects
+(base) MacBook-Pro-de-Jorge:Computational-Social-Science-Projects 
+jorgeantoniomorales$ mkdir Project_1
+(base) MacBook-Pro-de-Jorge:Computational-Social-Science-Projects 
+jorgeantoniomorales$ touch Commands.txt
+(base) MacBook-Pro-de-Jorge:Computational-Social-Science-Projects 
+jorgeantoniomorales$ cd Project_1
+(base) MacBook-Pro-de-Jorge:Project_1 jorgeantoniomorales$ cp Commands.txt 
+Project_1/
+cp: directory Project_1 does not exist
+(base) MacBook-Pro-de-Jorge:Project_1 jorgeantoniomorales$ cd 
+/Users/jorgeantoniomorales/Documents/GitHub
+(base) MacBook-Pro-de-Jorge:GitHub jorgeantoniomorales$ cp Commands.txt 
+Project_1/
+cp: directory Project_1 does not exist
+(base) MacBook-Pro-de-Jorge:GitHub jorgeantoniomorales$ cd 
+/Users/jorgeantoniomorales/Documents/GitHub/Computational-Social-Science-Projects
+(base) MacBook-Pro-de-Jorge:Computational-Social-Science-Projects 
+jorgeantoniomorales$ cp Commands.txt Project_1/
+(base) MacBook-Pro-de-Jorge:Computational-Social-Science-Projects 
+jorgeantoniomorales$ cd 
+/Users/jorgeantoniomorales/Documents/GitHub/Computational-Social-Science-Projects/Project_1
+(base) MacBook-Pro-de-Jorge:Project_1 jorgeantoniomorales$ nano 
+Commands.txt
