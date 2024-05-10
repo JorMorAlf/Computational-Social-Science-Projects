@@ -434,7 +434,29 @@ result
 ## LTMLE estimate
 ```{r LTMLE}
 # implement ltmle
+# Set the seed for reproducibility
+set.seed(125)
 
+# Super Learner libraries
+sl_libs <- c('SL.mean', 'SL.glm', 'SL.xgboost', 'SL.randomForest')
+
+# Prepare the data
+data <- heart_disease %>%
+  rename(Y = mortality, 
+         A1 = blood_pressure_medication, 
+         A2 = blood_pressure_medication_2, 
+         W1 = age, W2 = sex_at_birth, 
+         W3 = simplified_race, 
+         W4 = college_educ, 
+         W5 = income_thousands, 
+         W6 = bmi, W7 = blood_pressure, 
+         W8 = chol, 
+         L1 = bmi_2, 
+         L2 = blood_pressure_2, 
+         L3 = chol_2)
+
+# Check if data is a data frame (needed for ltmle code)
+print(is.data.frame(data))
 
 # Set up parallel processing
 num_cores <- detectCores() - 1  # Reserve one core for system stability
