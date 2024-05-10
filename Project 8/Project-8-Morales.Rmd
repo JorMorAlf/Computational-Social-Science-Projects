@@ -1,0 +1,441 @@
+---
+title: "Project 8 Template"
+output: pdf_document
+---
+
+```{r}
+# Add to this package list for additional SL algorithms
+pacman::p_load(
+  tidyverse,
+  ggthemes,
+  ltmle,
+  tmle,
+  SuperLearner,
+  tidymodels,
+  caret,
+  dagitty,
+  ggdag,
+  here)
+
+#install.packages("xgboost")
+#install.packages("biglasso")
+#install.packages("randomForest")
+
+
+library("xgboost")
+library("biglasso")
+library("randomForest")
+
+
+heart_disease <- read_csv(here('Project 8/heart_disease_tmle.csv'))
+
+set.seed(283)
+```
+
+# Introduction
+
+Heart disease is the leading cause of death in the United States, and treating it properly is an important public health goal. However, it is a complex disease with several different risk factors and potential treatments. Physicians typically recommend changes in diet, increased exercise, and/or medication to treat symptoms, but it is difficult to determine how effective any one of these factors is in treating the disease. In this project, you will explore SuperLearner, Targeted Maximum Likelihood Estimation (TMLE), and Longitudinal Targeted Maximum Likelihood Estimation (LTMLE). Using a simulated dataset, you will explore whether taking blood pressure medication reduces mortality risk. 
+
+# Data
+
+This dataset was simulated using R (so it does not come from a previous study or other data source). It contains several variables:
+
+\begin{itemize}
+    \item \textbf{blood\_pressure\_medication}: Treatment indicator for whether the individual took blood pressure medication (0 for control, 1 for treatment)
+    \item \textbf{mortality}: Outcome indicator for whether the individual passed away from complications of heart disease (0 for no, 1 for yes)
+    \item \textbf{age}: Age at time 1
+    \item \textbf{sex\_at\_birth}: Sex assigned at birth (0 female, 1 male)
+    \item \textbf{simplified\_race}: Simplified racial category. (1: White/Caucasian, 2: Black/African American, 3: Latinx, 4: Asian American, \newline 5: Mixed Race/Other)
+    \item \textbf{income\_thousands}: Household income in thousands of dollars
+    \item \textbf{college\_educ}: Indicator for college education (0 for no, 1 for yes)
+    \item \textbf{bmi}: Body mass index (BMI)
+    \item \textbf{chol}: Cholesterol level
+    \item \textbf{blood\_pressure}: Systolic blood pressure 
+    \item \textbf{bmi\_2}: BMI measured at time 2
+    \item \textbf{chol\_2}: Cholesterol measured at time 2
+    \item \textbf{blood\_pressure\_2}: BP measured at time 2
+    \item \textbf{blood\_pressure\_medication\_2}: Whether the person took treatment at time period 2 
+\end{itemize}
+
+For the "SuperLearner" and "TMLE" portions, you can ignore any variable that ends in "\_2", we will reintroduce these for LTMLE.
+
+# SuperLearner
+
+## Modeling
+
+Fit a SuperLearner model to estimate the probability of someone dying from complications of heart disease, conditional on treatment and the relevant covariates. Do the following:
+
+\begin{enumerate}
+    \item Choose a library of at least 5 machine learning algorithms to evaluate. \textbf{Note}: We did not cover how to hyperparameter tune constituent algorithms within SuperLearner in lab, but you are free to do so if you like (though not required to for this exercise). 
+    \item Split your data into train and test sets.
+    \item Train SuperLearner
+    \item Report the risk and coefficient associated with each model, and the performance of the discrete winner and SuperLearner ensemble
+    \item Create a confusion matrix and report your overall accuracy, recall, and precision
+\end{enumerate}
+
+```{r}
+# Fit SuperLearner Model
+
+## sl lib
+
+listWrappers()
+
+# set seed
+set.seed(987)
+
+# multiple models  
+# ----------
+ # I chose the following models: 'SL.mean','SL.glmnet','SL.randomForest','SL.glm','SL.xgboost','SL.biglasso')
+                  
+
+
+
+```
+
+```{r}
+
+## Train/Test split
+# initial split
+# ----------
+heart_split <- 
+  initial_split(heart_disease, prop = 3/4) # create initial split (tidymodels)
+
+train <- training(heart_split)
+
+# y_train 
+y_train <- 
+  train  %>%
+  # pull and save as vector
+  pull(mortality)    
+
+# x_train  
+x_train <-
+  train %>%
+  # drop the target variable
+  select(-mortality)   
+
+# Testing 
+# ----------
+test <-  
+  # Declare the training set with rsample::training()
+  testing(heart_split)
+
+# y test
+y_test <- 
+  test %>%
+  pull(mortality)
+
+# x test
+x_test <- 
+  test %>%
+  select(-mortality)   
+
+```
+
+```{r}
+
+## Train SuperLearner 
+
+# I'm doing 4 because it is taking a long time to process 
+sl_libs <- c('SL.mean','SL.randomForest','SL.glm', 'xgboost')
+
+sl = SuperLearner(Y = y_train,
+                  X = x_train,
+                  family = binomial(),
+                  # notice these models are concatenated
+                  SL.library = c('SL.mean',    # if you just guessed the average - serves as a baseline
+                                 'SL.glm',
+                                 'SL.randomForest' ))
+
+## Risk and Coefficient of each model                
+sl
+```
+
+``` {r} 
+
+## Discrete winner and superlearner ensemble performance
+
+# predictions
+# ----------
+preds <- 
+  predict(sl,             # use the superlearner not individual models
+          x_test,         # prediction on test set
+          onlySL = TRUE)  # use only models that were found to be useful (had weights)
+
+
+# start with y_test
+validation <- 
+  y_test %>%
+  # add our predictions - first column of predictions
+  bind_cols(preds$pred[,1]) %>% 
+  # rename columns
+  rename(obs = `...1`,      # actual observations 
+         pred = `...2`) %>% # predicted prob
+  # change pred column so that obs above .5 are 1, otherwise 0
+  mutate(pred = ifelse(pred >= .5, 
+                           1,
+                           0))
+
+# view
+head(validation)
+
+## Confusion Matrix
+```
+
+``` {r}
+# confusion matrix
+# ----------
+conf_matrix <- confusionMatrix(as.factor(validation$pred),
+                               as.factor(validation$obs))
+
+
+# Extract the table from the confusion matrix
+matrix_data <- as.data.frame(as.table(conf_matrix$table))
+
+# Rename the columns for easier understanding
+colnames(matrix_data) <- c("Reference", "Prediction", "Frequency")
+
+# Convert frequencies to percentages
+total_observations <- sum(matrix_data$Frequency)
+matrix_data$Percentage <- (matrix_data$Frequency / total_observations) * 100
+
+# Plot using ggplot2 with percentages
+ggplot(matrix_data, aes(x = Reference, y = Prediction, fill = Percentage)) +
+  geom_tile(color = "white") + # Use geom_tile for the heatmap effect
+  scale_fill_gradient(low = "white", high = "blue") + # Color gradient
+  geom_text(aes(label = sprintf("%.1f%%", Percentage)), vjust = 1) + # Add percentage text
+  theme_minimal() + # Use a minimal theme
+  labs(title = "Confusion Matrix", x = "Observed", y = "Predicted") # Labels
+
+overall_stats <- conf_matrix$overall
+accuracy <- overall_stats['Accuracy']
+precision <- overall_stats['Precision']
+recall <- overall_stats['Recall']
+F1 <- 2 * (precision * recall) / (precision + recall)
+
+# Display the metrics
+cat("Accuracy: ", accuracy * 100, "%\n")
+cat("Precision: ", precision * 100, "%\n")
+cat("Recall: ", recall * 100, "%\n")
+cat("F1 Score: ", F1 * 100, "%\n")
+
+```
+
+## Discussion Questions
+
+\begin{enumerate}
+    \item Why should we, in general, prefer the SuperLearner ensemble to the discrete winner in cross-validation? Or in other words, what is the advantage of "blending" algorithms together and giving them each weights, rather than just using the single best algorithm (with best being defined as minimizing risk)?
+    \item The Superlearner ensamble is always better or equal than any of the algorithms in it, and it can adjust also for expert specifications. As usual, the big improvement also comes from reducing the overfitting of individual models by weightening against the others and using cross-validation. So pretty much, it mitigates the risk of sticking with one model that might have some issues, and it takes the best out of all of them. As we learned on the course, each model might have strengths depending on the data and specifications, superLearners provides a tool to make the best out of all. 
+\end{enumerate}
+
+
+
+# Targeted Maximum Likelihood Estimation
+
+
+
+## Causal Diagram
+
+TMLE requires estimating two models:
+
+\begin{enumerate}
+    \item The outcome model, or the relationship between the outcome and the treatment/predictors, $P(Y|(A,W)$.
+    \item The propensity score model, or the relationship between assignment to treatment and predictors $P(A|W)$
+\end{enumerate}
+
+Using ggdag and daggity, draw a directed acylcic graph (DAG) that describes the relationships between the outcome, treatment, and covariates/predictors. Note, if you think there are covariates that are not related to other variables in the dataset, note this by either including them as freestanding nodes or by omitting them and noting omissions in your discussion.
+
+
+
+W =  age, sex_at_birth, simplified_race, income_thousands, college_educ, bmi, chol, blood_pressure
+A = blood_pressure_medication
+Y = mortality
+Uw = unobserved variables affecting covariates
+Ua = unobserved variables affecting treatment
+
+Notice that almost all covariets have an effect on the prescription and take-up of the medication: due to guidelines we know there are differential recomemndations based on age, sex, race, and bmi, chol, blood presure levels; and then we see that education, income also play a role in how many people will follow the treatment and adhere. 
+
+Similarly, all these variables are related to mortality
+
+
+
+```{r}
+# DAG for TMLE
+library(ggdag)
+library(dagitty)
+
+# Define DAG
+
+dag <- dagitty::dagitty("
+dag {
+  Uw [unobserved]  
+  Ua [unobserved]  
+  W -> A -> Y
+  W -> Y          
+  Uw -> W         
+  Ua -> A     
+}
+")
+
+ggdag <- ggdag::ggdag(dag, text = TRUE, use_labels = "name", layout = "circle") +
+  theme_minimal() +
+  ggtitle("Directed Acyclic Graph (DAG) of Heart Disease Study")
+
+print(ggdag)
+
+```
+
+## TMLE Estimation
+
+Use the `tmle` package to estimate a model for the effect of blood pressure medication on the probability of mortality. Do the following:
+
+\begin{enumerate}
+    \item Use the same SuperLearner library you defined earlier
+    \item Use the same outcome model and propensity score model that you specified in the DAG above. If in your DAG you concluded that it is not possible to make a causal inference from this dataset, specify a simpler model and note your assumptions for this step.
+    \item Report the average treatment effect and any other relevant statistics
+\end{enumerate}
+
+```{r TMLE} 
+
+# set seed for reproducibility
+set.seed(1000)
+sl_libs <- c('SL.mean','SL.randomForest','SL.glm', 'xgboost')
+
+
+# Define the outcome, treatment, and covariates
+Y <- "mortality"  
+A <- "blood_pressure_medication"  
+W <- c("age", "sex_at_birth", "simplified_race", "income_thousands", "college_educ", "bmi", "chol", "blood_pressure")  #
+
+# Run the TMLE
+tmle_fit <- tmle(
+  Y = heart_disease[[Y]], 
+  A = heart_disease[[A]], 
+  W = heart_disease[W], 
+  family = "binomial",  # assuming Y is binary
+  Q.SL.library = sl_libs,
+  g.SL.library = sl_libs
+)
+
+
+
+# view results 
+tmle_fit
+```
+
+
+## Discussion Questions
+
+\begin{enumerate}
+    \item What is a "double robust" estimator? Why does it provide a guarantee of consistency if either the outcome model or propensity score model is correctly specified? Or in other words, why does mispecifying one of the models not break the analysis? \textbf{Hint}: When answering this question, think about how your introductory statistics courses emphasized using theory to determine the correct outcome model, and in this course how we explored the benefits of matching.
+    \item Doubly robust estimators are two step models, where a first model estimates the probability of treatment, and the second uses that probability to estimate the target estimator of the outcomes. The biggest advantage of such estimators is that if either of the two stages of the model are correctly specified there will be consistency in the results. The first part of the model addresses the potential biases coming from self-selection to the treatment variable, by matching observations based on observable characteristics, whereas the second part addressed the misspecification of the model by adjusting the estimate based on treatment and covariates. The advantage of the first part is that finds a common support and weights the observations to create the best counterfactual by letting ML do the best match based on predictions. Theory, as the creator of TMLE,  Mark VanDerLaan says it is a great way to have a first outcome that will help to target the estimator, and you can include as many theoretically based models to the SuperLearner, so the model will be as good or better than theory informed. But in doubly robust estimators like TMLE, it can be discovered that researchers might have their own biases and might not be getting the best estimate of treatment, or their best specification of the regression model for the outcome. At the end of the day, we still need theory to build our DAGs, specially to address any potential missing variable, that could be biasing the results. DR methods can't improve the estimates if there are a lot of missing variables or unobservables, which highlights why this methods are still prone to similar weaknesses than other models. 
+\end{enumerate}
+
+# LTMLE Estimation
+
+Now imagine that everything you measured up until now was in "time period 1". Some people either choose not to or otherwise lack access to medication in that time period, but do start taking the medication in time period 2. Imagine we measure covariates like BMI, blood pressure, and cholesterol at that time for everyone in the study (indicated by a "_2" after the covariate name). 
+
+## Causal Diagram
+
+Update your causal diagram to incorporate this new information. \textbf{Note}: If your groups divides up sections and someone is working on LTMLE separately from TMLE then just draw a causal diagram even if it does not match the one you specified above.
+
+\textbf{Hint}: Check out slide 27 from Maya's lecture, or slides 15-17 from Dave's second slide deck in week 8 on matching.
+
+\textbf{Hint}: Keep in mind that any of the variables that end in "\_2" are likely affected by both the previous covariates and the first treatment when drawing your DAG.
+
+```{r}
+# DAG for TMLE
+
+
+dag <- dagitty::dagitty("
+dag {
+  Uw [unobserved]  
+  Ua [unobserved]  
+  W1-> A1 -> Y      
+  W1 -> Y         
+  W0 -> Y
+  W0 -> A1
+  A0 -> Y
+  Uw -> W0
+  Ua -> A0
+}
+")
+
+ggdag <- ggdag::ggdag(dag, text = TRUE, use_labels = "name", layout = "circle") +
+  theme_minimal() +
+  ggtitle("Longitudinal DAG")
+
+# Print the DAG
+print(ggdag)
+
+```
+
+
+
+## LTMLE Estimation
+
+Use the `ltmle` package for this section. First fit a "naive model" that \textbf{does not} control for the time-dependent confounding. Then run a LTMLE model that does control for any time dependent confounding. Follow the same steps as in the TMLE section. Do you see a difference between the two estimates?
+
+```{r LTMLEnaive}
+
+## Naive Model (no time-dependent confounding) estimate
+
+
+data_obs <- 
+  heart_disease %>%
+  rename(Y = mortality, A = blood_pressure_medication, W1=age, W2=sex_at_birth, W3=simplified_race, W4=college_educ, W5=income_thousands, W6=bmi, W7=blood_pressure, W8=chol)
+
+data_obs_ltmle <-
+  data_obs %>%
+  select(W1, W2, W3,W4,W5,W6,W7,W8, A, Y)
+
+# implement ltmle
+# ----------
+result <- ltmle(data_obs_ltmle, # dataset
+                Anodes = "A",   # vector that shows treatment
+                Ynodes = "Y",   # vector that shows outcome
+                abar = 1)
+# view
+result
+```
+
+## LTMLE estimate
+```{r LTMLE}
+# implement ltmle
+set.seed(125)
+sl_libs <- c('SL.mean','SL.glm', 'SL.xgboost', 'randomForest')
+
+# Create and rename 
+data <- heart_disease %>%
+  rename(Y = mortality, 
+         A1 = blood_pressure_medication, 
+         A2 = blood_pressure_medication_2, 
+         W1 = age, W2 = sex_at_birth, 
+         W3 = simplified_race, 
+         W4 = college_educ, 
+         W5 = income_thousands, 
+         W6 = bmi, W7 = blood_pressure, 
+         W8 = chol, 
+         L1 = bmi_2, 
+         L2 = blood_pressure_2, 
+         L3 = chol_2)
+
+# Check if data_ is a data frame (needed from ltmle code)
+print(is.data.frame(data))
+ltmle_res <- ltmle(data, 
+      Anodes = c("A1", "A2"),  # Two treatment variables
+      Lnodes = c("L1", "L2", "L3"),  # L indicators
+      Ynodes = "Y",  # Outcome
+      abar = c(1, 1),  # Treatment indicator in Anodes vector
+      SL.library = sl_libs)  
+
+```
+LTMLE results are a little bit smaller, 0.19 than the naive ltmle results 0.20, and also smaller than the original TMLE results. The change is 5% of the original one, so not very worrysome. 
+
+## Discussion Questions
+
+\begin{enumerate}
+    \item What sorts of time-dependent confounding should we be especially worried about? For instance, would we be concerned about a running variable for age the same way we might be concerned about blood pressure measured at two different times?
+    \item There are confounding variables that are endogenous to the model like blood pressure, that is a function of previous variables like taking medication or even changing the bmi. This variables can't be assume to not have a time dependency, so LTMLE is a better fit. Variables like age are not determined by previous events or variables (unless there is attrition based on age but that's another story) so it is a variable that does not need a time-dependant specification. 
+\end{enumerate}
+
